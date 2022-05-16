@@ -52,6 +52,14 @@ s3=
   max_queue_size=1000
 `)
 
+var envVarConfig = []byte(`# an example profile file with env vars
+[profile testing]
+region=us-east-1
+env_vars =
+ AWS_ENVIRONMENT=testing
+ BUILD_TYPE=Debug
+`)
+
 var defaultsOnlyConfigWithHeader = []byte(`[default]
 region=us-west-2
 output=json
@@ -202,6 +210,34 @@ func TestAddProfileToExistingConfig(t *testing.T) {
 
 	if diff := cmp.Diff(expected, actual); diff != "" {
 		t.Errorf("ProfileSections() mismatch (-expected +actual):\n%s", diff)
+	}
+}
+
+func TestParseEnvVars(t *testing.T) {
+	f := newConfigFile(t, envVarConfig)
+	defer os.Remove(f)
+
+	cfg, err := vault.LoadConfig(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	section, ok := cfg.ProfileSection("testing")
+	if !ok {
+		t.Fatalf("failed to find testing profile section in config")
+	}
+
+	ev, err := section.ParseEnvVars()
+	if err != nil {
+		t.Fatalf("invalid env var in config: %s", err)
+	}
+
+	expected := map[string]string{
+		"AWS_ENVIRONMENT": "testing",
+		"BUILD_TYPE":      "Debug",
+	}
+	if diff := cmp.Diff(expected, ev); diff != "" {
+		t.Fatalf("unexpected env vars:\n%s", diff)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	ini "gopkg.in/ini.v1"
 )
 
@@ -127,31 +128,44 @@ func (c *ConfigFile) parseFile() error {
 
 // ProfileSection is a profile section of the config file
 type ProfileSection struct {
-	Name                    string `ini:"-"`
-	MfaSerial               string `ini:"mfa_serial,omitempty"`
-	RoleARN                 string `ini:"role_arn,omitempty"`
-	ExternalID              string `ini:"external_id,omitempty"`
-	Region                  string `ini:"region,omitempty"`
-	RoleSessionName         string `ini:"role_session_name,omitempty"`
-	DurationSeconds         uint   `ini:"duration_seconds,omitempty"`
-	SourceProfile           string `ini:"source_profile,omitempty"`
-	ParentProfile           string `ini:"parent_profile,omitempty"` // deprecated
-	IncludeProfile          string `ini:"include_profile,omitempty"`
-	SSOStartURL             string `ini:"sso_start_url,omitempty"`
-	SSORegion               string `ini:"sso_region,omitempty"`
-	SSOAccountID            string `ini:"sso_account_id,omitempty"`
-	SSORoleName             string `ini:"sso_role_name,omitempty"`
-	WebIdentityTokenFile    string `ini:"web_identity_token_file,omitempty"`
-	WebIdentityTokenProcess string `ini:"web_identity_token_process,omitempty"`
-	STSRegionalEndpoints    string `ini:"sts_regional_endpoints,omitempty"`
-	SessionTags             string `ini:"session_tags,omitempty"`
-	TransitiveSessionTags   string `ini:"transitive_session_tags,omitempty"`
-	SourceIdentity          string `ini:"source_identity,omitempty"`
+	Name                    string   `ini:"-"`
+	MfaSerial               string   `ini:"mfa_serial,omitempty"`
+	RoleARN                 string   `ini:"role_arn,omitempty"`
+	ExternalID              string   `ini:"external_id,omitempty"`
+	Region                  string   `ini:"region,omitempty"`
+	RoleSessionName         string   `ini:"role_session_name,omitempty"`
+	DurationSeconds         uint     `ini:"duration_seconds,omitempty"`
+	SourceProfile           string   `ini:"source_profile,omitempty"`
+	ParentProfile           string   `ini:"parent_profile,omitempty"` // deprecated
+	IncludeProfile          string   `ini:"include_profile,omitempty"`
+	SSOStartURL             string   `ini:"sso_start_url,omitempty"`
+	SSORegion               string   `ini:"sso_region,omitempty"`
+	SSOAccountID            string   `ini:"sso_account_id,omitempty"`
+	SSORoleName             string   `ini:"sso_role_name,omitempty"`
+	WebIdentityTokenFile    string   `ini:"web_identity_token_file,omitempty"`
+	WebIdentityTokenProcess string   `ini:"web_identity_token_process,omitempty"`
+	STSRegionalEndpoints    string   `ini:"sts_regional_endpoints,omitempty"`
+	SessionTags             string   `ini:"session_tags,omitempty"`
+	TransitiveSessionTags   string   `ini:"transitive_session_tags,omitempty"`
+	SourceIdentity          string   `ini:"source_identity,omitempty"`
+	RawEnvVars              []string `ini:"-"`
+}
+
+func (s ProfileSection) ParseEnvVars() (map[string]string, error) {
+	envVars := make(map[string]string, len(s.RawEnvVars))
+	for _, ev := range s.RawEnvVars {
+		key, value, found := strings.Cut(ev, "=")
+		if !found {
+			return nil, fmt.Errorf("invalid env var found in config: %q", ev)
+		}
+		envVars[key] = value
+	}
+	return envVars, nil
 }
 
 func (s ProfileSection) IsEmpty() bool {
 	s.Name = ""
-	return s == ProfileSection{}
+	return cmp.Equal(s, ProfileSection{})
 }
 
 // ProfileSections returns all the profile sections in the config
@@ -202,6 +216,7 @@ func (c *ConfigFile) ProfileSection(name string) (ProfileSection, bool) {
 	if err = section.MapTo(&profile); err != nil {
 		panic(err)
 	}
+	profile.RawEnvVars = section.Key("env_vars").NestedValues()
 	return profile, true
 }
 
