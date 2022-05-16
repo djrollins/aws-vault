@@ -291,6 +291,10 @@ func execEnvironment(input ExecCommandInput, config *vault.Config, credsProvider
 		env.Set("AWS_SESSION_EXPIRATION", iso8601.Format(creds.Expires))
 	}
 
+	for key, value := range config.EnvVars {
+		env.Set(key, value)
+	}
+
 	if !supportsExecSyscall() {
 		return execCmd(input.Command, input.Args, env)
 	}

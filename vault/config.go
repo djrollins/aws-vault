@@ -382,6 +382,18 @@ func (cl *ConfigLoader) populateFromConfigFile(config *Config, profileName strin
 		config.SourceProfileName = ""
 	}
 
+	envVars, err := psection.ParseEnvVars()
+	if err != nil {
+		return err
+	}
+	if config.EnvVars == nil {
+		config.EnvVars = envVars
+	} else {
+		for key, value := range envVars {
+			config.EnvVars[key] = value
+		}
+	}
+
 	return nil
 }
 
@@ -570,6 +582,8 @@ type Config struct {
 
 	// SourceIdentity specifies assumed role Source Identity
 	SourceIdentity string
+
+	EnvVars map[string]string
 }
 
 // SetSessionTags parses a comma separated key=vaue string and sets Config.SessionTags map
